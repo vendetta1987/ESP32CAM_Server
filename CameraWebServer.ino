@@ -83,9 +83,9 @@ void setup()
   }
   //drop down frame size for higher initial frame rate
   s->set_framesize(s, FRAMESIZE_SVGA);
-  s->set_aec2(s, 1);//aec dsp
+  s->set_aec2(s, 1); //aec dsp
   s->set_gainceiling(s, gainceiling_t::GAINCEILING_4X);
-  s->set_lenc(s, 0);//lens correction
+  s->set_lenc(s, 0); //lens correction
 
 #if defined(CAMERA_MODEL_M5STACK_WIDE)
   s->set_hmirror(s, 1);
@@ -112,7 +112,7 @@ void setup()
 
 void loop()
 {
-  const unsigned long rebootIntervalMS = 5 * 50 * 1000;
+  const unsigned long rebootIntervalMS = 5 * 60 * 1000;
 
   if (millis() > rebootIntervalMS)
   {
@@ -121,6 +121,6 @@ void loop()
   }
   else
   {
-    //Serial.println("runtime is " + String(millis()) + "ms");
+    delay(10 * 1000);
   }
 }

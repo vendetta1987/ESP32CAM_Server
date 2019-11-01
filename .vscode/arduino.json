@@ -3,5 +3,5 @@
     "configuration": "PartitionScheme=huge_app,FlashMode=qio,FlashFreq=80,UploadSpeed=921600,DebugLevel=none",
     "port": "COM4",
     "sketch": "CameraWebServer.ino",
-    "output":"../build_tmp"
+    "output": "../build_tmp"
 }
