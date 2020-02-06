@@ -1,5 +1,5 @@
-#ifndef WIFI_CREDENTIALS
-#define WIFI_CREDENTIALS
+#ifndef WIFI_CREDENTIALS_H
+#define WIFI_CREDENTIALS_H
 
 #include <WiFi.h>
 

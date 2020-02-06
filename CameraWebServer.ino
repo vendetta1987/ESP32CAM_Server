@@ -1,5 +1,4 @@
 #include "esp_camera.h"
-#include <WiFi.h>
 
 //
 // WARNING!!! Make sure that you have either selected ESP32 Wrover Module,
@@ -15,16 +14,21 @@
 
 #include "camera_pins.h"
 #include "WifiCredentials.h"
+#include "DHT22Sensor.h"
+#include "MQTT.h"
+#include <WiFi.h>
 #include <cstring>
+
+const unsigned long REBOOT_INTERVAL_MS = 5 * 60 * 1000;
+const unsigned long DHT_READ_INTERVAL_MS = 30 * 1000;
+unsigned long lastDHTRead = 0;
+
+MyMQTTClient mqttClient;
 
 void startCameraServer();
 
-void setup()
+void initCamera()
 {
-  Serial.begin(115200);
-  Serial.setDebugOutput(false);
-  Serial.println();
-
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -46,6 +50,7 @@ void setup()
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
+
   //init with high specs to pre-allocate larger buffers
   if (psramFound())
   {
@@ -91,6 +96,11 @@ void setup()
   s->set_hmirror(s, 1);
 #endif
 
+  startCameraServer();
+}
+
+void connectToWiFi()
+{
   WifiCredentials const *const creds = getClosestWifi(WiFi);
 
   WiFi.begin(creds->SSID, creds->password);
@@ -100,27 +110,63 @@ void setup()
     delay(500);
     Serial.print(".");
   }
-  Serial.println("");
-  Serial.println("WiFi connected");
 
-  startCameraServer();
+  Serial.println("\nWiFi connected");
+}
+
+void setup()
+{
+  Serial.begin(115200);
+  Serial.setDebugOutput(false);
+
+  Serial.print("initializing camera... ");
+  initCamera();
+
+  Serial.println("connecting wifi");
+  connectToWiFi();
 
   Serial.print("Camera Ready! Use 'http://");
   Serial.print(WiFi.localIP());
   Serial.println("' to connect");
+
+  if (mqttClient.connectToBroker() != MQTT_SUCCESS)
+  {
+    Serial.print("failed to connect to MQTT broker! error: ");
+    Serial.println(mqttClient.connectError());
+  }
+  else
+  {
+    Serial.println("connected to MQTT broker");
+  }
 }
 
 void loop()
 {
-  const unsigned long rebootIntervalMS = 5 * 60 * 1000;
+  mqttClient.poll();
 
-  if (millis() > rebootIntervalMS)
+  if (millis() > REBOOT_INTERVAL_MS)
   {
     Serial.println("restarting");
     ESP.restart();
   }
+  else if ((millis() - lastDHTRead) > DHT_READ_INTERVAL_MS)
+  {
+    float temperature = -1.f;
+    float humidity = -1.f;
+
+    getDHTReadings(temperature, humidity);
+
+    Serial.printf("temperature: %.2f\n", temperature);
+    Serial.printf("humidity: %.2f\n", humidity);
+
+    lastDHTRead = millis();
+
+    mqttClient.beginMessage(WiFi.macAddress());
+    mqttClient.printf("{\"t\":%.2f,\"h\":%.2f}", temperature, humidity);
+    mqttClient.endMessage();
+  }
   else
   {
-    delay(10 * 1000);
+    delay(2 * 1000);
   }
 }
