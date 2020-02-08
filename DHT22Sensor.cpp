@@ -1,8 +1,8 @@
 #include "DHT22Sensor.h"
 
-void getDHTReadings(float &temp, float &hum)
+void getDHTReadings(SimpleDHT22 *const sensor, float &temp, float &hum)
 {
-    int err = dht22.read2(&temp, &hum, NULL);
+    int err = sensor->read2(&temp, &hum, NULL);
 
     if (err != SimpleDHTErrSuccess)
     {
@@ -10,5 +10,3 @@ void getDHTReadings(float &temp, float &hum)
         Serial.println(err);
     }
 }
-
-SimpleDHT22 dht22(DHT_PIN);
