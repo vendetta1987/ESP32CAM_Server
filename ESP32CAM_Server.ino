@@ -1,5 +1,3 @@
-#include "esp_camera.h"
-
 //
 // WARNING!!! Make sure that you have either selected ESP32 Wrover Module,
 //            or another board which has PSRAM enabled
@@ -12,18 +10,20 @@
 //#define CAMERA_MODEL_M5STACK_WIDE
 #define CAMERA_MODEL_AI_THINKER
 
+#include "esp_camera.h"
 #include "camera_pins.h"
 #include "WifiCredentials.h"
 #include "DHT22Sensor.h"
 #include "MQTT.h"
-#include <WiFi.h>
 #include <cstring>
+#include <WiFi.h>
 
-const unsigned long REBOOT_INTERVAL_MS = 5 * 60 * 1000;
-const unsigned long DHT_READ_INTERVAL_MS = 30 * 1000;
-unsigned long lastDHTRead = 0;
+static const unsigned long REBOOT_INTERVAL_MS = 30 * 60 * 1000;
+static const unsigned long DHT_READ_INTERVAL_MS = 5 * 60 * 1000;
+static unsigned long lastDHTRead = 0;
 
-MyMQTTClient mqttClient;
+MyMQTTClient *mqttClient = nullptr;
+SimpleDHT22 *dht22 = nullptr;
 
 void startCameraServer();
 
@@ -93,10 +93,9 @@ void initCamera()
   s->set_lenc(s, 0); //lens correction
 
 #if defined(CAMERA_MODEL_M5STACK_WIDE)
+  s->set_vflip(s, 1);
   s->set_hmirror(s, 1);
 #endif
-
-  startCameraServer();
 }
 
 void connectToWiFi()
@@ -114,56 +113,81 @@ void connectToWiFi()
   Serial.println("\nWiFi connected");
 }
 
-void setup()
+MyMQTTClient *createAndConnectMQTT()
 {
-  Serial.begin(115200);
-  Serial.setDebugOutput(false);
+  MyMQTTClient *client = new MyMQTTClient();
 
-  Serial.print("initializing camera... ");
-  initCamera();
-
-  Serial.println("connecting wifi");
-  connectToWiFi();
-
-  Serial.print("Camera Ready! Use 'http://");
-  Serial.print(WiFi.localIP());
-  Serial.println("' to connect");
-
-  if (mqttClient.connectToBroker() != MQTT_SUCCESS)
+  if (client->connectToBroker() != MQTT_SUCCESS)
   {
-    Serial.print("failed to connect to MQTT broker! error: ");
-    Serial.println(mqttClient.connectError());
+    Serial.printf("failed to connect to MQTT broker! error: %d\n", client->connectError());
   }
   else
   {
     Serial.println("connected to MQTT broker");
   }
+
+  return client;
+}
+
+void setup()
+{
+  Serial.begin(115200);
+  Serial.setDebugOutput(false);
+  Serial.println();
+
+  Serial.println("initializing camera");
+  initCamera();
+
+  Serial.println("connecting wifi");
+  connectToWiFi();
+
+  Serial.println("starting camera server");
+  //make sure to establish wifi connection before calling this
+  startCameraServer();
+
+  Serial.println("Camera Ready! Use 'http://" + WiFi.localIP().toString() + "' to connect");
+
+  dht22 = new SimpleDHT22(DHT_PIN);
+  mqttClient = createAndConnectMQTT();
 }
 
 void loop()
 {
-  mqttClient.poll();
+  const unsigned long currentTime = millis();
 
-  if (millis() > REBOOT_INTERVAL_MS)
+  mqttClient->poll();
+
+  if (currentTime > REBOOT_INTERVAL_MS)
   {
     Serial.println("restarting");
     ESP.restart();
   }
-  else if ((millis() - lastDHTRead) > DHT_READ_INTERVAL_MS)
+  else if ((lastDHTRead == 0) || ((currentTime - lastDHTRead) > DHT_READ_INTERVAL_MS))
   {
     float temperature = -1.f;
     float humidity = -1.f;
 
-    getDHTReadings(temperature, humidity);
+    getDHTReadings(dht22, temperature, humidity);
 
     Serial.printf("temperature: %.2f\n", temperature);
     Serial.printf("humidity: %.2f\n", humidity);
 
-    lastDHTRead = millis();
+    lastDHTRead = currentTime;
+    {
+      const char MESSAGE_TEMPLATE[] = "{\"t\":%.1f,\"h\":%.1f}";
 
-    mqttClient.beginMessage(WiFi.macAddress());
-    mqttClient.printf("{\"t\":%.2f,\"h\":%.2f}", temperature, humidity);
-    mqttClient.endMessage();
+      String topic = WiFi.macAddress();
+      topic.replace(":", "");
+      topic.toLowerCase();
+
+      const int stringSize = snprintf(nullptr, 0, MESSAGE_TEMPLATE, temperature, humidity);
+      char *const message = new char[stringSize + 1];
+
+      sprintf(message, MESSAGE_TEMPLATE, temperature, humidity);
+      mqttClient->sendMessage(topic.c_str(), message);
+
+      delete[] message;
+    }
   }
   else
   {

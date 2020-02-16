@@ -14,6 +14,7 @@ public:
     virtual ~MyMQTTClient(){};
 
     bool connectToBroker();
+    void sendMessage(char const *const topic, char const *const message);
 
     //exact copy of MqttClient.connect which can't be found otherwise, weird
     virtual int connect(const char *host, uint16_t port = 1883);

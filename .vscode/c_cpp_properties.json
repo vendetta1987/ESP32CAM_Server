@@ -6,7 +6,7 @@
                 "C:\\Users\\vende\\Documents\\Arduino\\libraries\\ArduinoMqttClient\\src",
                 "C:\\Users\\vende\\Documents\\Arduino\\libraries\\SimpleDHT",
                 "C:\\Users\\vende\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\**",
-                "C:\\Users\\vende\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\1.0.2\\**",
+                "C:\\Users\\vende\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\1.0.4\\**",
                 "${workspaceFolder}/**"
             ],
             "defines": [
