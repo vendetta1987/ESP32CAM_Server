@@ -9,20 +9,20 @@ WifiCredentials::WifiCredentials(char const *SSID, char const *pass) : SSID(SSID
 
 WifiCredentials const *const getClosestWifi(WiFiClass &wifiCl)
 {
-    int16_t wifiCnt = wifiCl.scanNetworks(false, true);
-    int16_t maxRSSIIdx = -1;
-    int8_t maxRSSI = -128;
+    uint8_t wifiCnt = wifiCl.scanNetworks(false, true);
+    uint8_t maxRSSIIdx = -1;
+    int32_t maxRSSI = -512;
 
-    for (size_t i = 0; i < wifiCnt; i++)
+    for (uint8_t i = 0; i < wifiCnt; i++)
     {
         String ssid = wifiCl.SSID(i);
         Serial.print("found " + ssid + "\n");
 
-        for (size_t j = 0; j < knownCredsCnt; j++)
+        for (uint8_t j = 0; j < knownCredsCnt; j++)
         {
             if (strcmp(ssid.c_str(), knownCreds[j]->SSID) == 0)
             {
-                int8_t rssi = wifiCl.RSSI(i);
+                int32_t rssi = wifiCl.RSSI(i);
                 Serial.print(ssid + " RSSI=" + String(rssi) + "\n");
 
                 if (rssi > maxRSSI)
@@ -38,10 +38,8 @@ WifiCredentials const *const getClosestWifi(WiFiClass &wifiCl)
     return knownCreds[maxRSSIIdx];
 }
 
-char const *const password = "password";
 
+const WifiCredentials fbCreds = {"SSID1", "password"};
 
-const WifiCredentials fbCreds = {"SSID1", password};
-
-WifiCredentials const *const knownCreds[] = {&fbCreds};
-const unsigned int knownCredsCnt = sizeof(knownCreds) / sizeof(*knownCreds);
+WifiCredentials const *const knownCreds[] = {&wifiCreds};
+const unsigned char knownCredsCnt = sizeof(knownCreds) / sizeof(*knownCreds);

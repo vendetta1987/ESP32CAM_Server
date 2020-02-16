@@ -13,7 +13,7 @@ struct WifiCredentials
 
 WifiCredentials const *const getClosestWifi(WiFiClass &wifiCl);
 
-extern const unsigned int knownCredsCnt;
+extern const unsigned char knownCredsCnt;
 extern WifiCredentials const *const knownCreds[];
 
 #endif
