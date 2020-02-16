@@ -10,20 +10,29 @@
 //#define CAMERA_MODEL_M5STACK_WIDE
 #define CAMERA_MODEL_AI_THINKER
 
+#define ENABLE_DHT_MQTT
+
 #include "esp_camera.h"
 #include "camera_pins.h"
 #include "WifiCredentials.h"
+
+#if defined(ENABLE_DHT_MQTT)
 #include "DHT22Sensor.h"
 #include "MQTT.h"
+#endif
+
 #include <cstring>
 #include <WiFi.h>
 
 static const unsigned long REBOOT_INTERVAL_MS = 30 * 60 * 1000;
+
+#if defined(ENABLE_DHT_MQTT)
 static const unsigned long DHT_READ_INTERVAL_MS = 5 * 60 * 1000;
 static unsigned long lastDHTRead = 0;
 
 MyMQTTClient *mqttClient = nullptr;
 SimpleDHT22 *dht22 = nullptr;
+#endif
 
 void startCameraServer();
 
@@ -87,10 +96,13 @@ void initCamera()
     s->set_saturation(s, -2); //lower the saturation
   }
   //drop down frame size for higher initial frame rate
-  s->set_framesize(s, FRAMESIZE_SVGA);
+  s->set_framesize(s, FRAMESIZE_UXGA);
   s->set_aec2(s, 1); //aec dsp
   s->set_gainceiling(s, gainceiling_t::GAINCEILING_4X);
-  s->set_lenc(s, 0); //lens correction
+  s->set_lenc(s, 1); //lens correction
+  s->set_bpc(s, 1);  //black pixel check
+  s->set_wpc(s, 1);  //white pixel check
+  s->set_raw_gma(s, 1);
 
 #if defined(CAMERA_MODEL_M5STACK_WIDE)
   s->set_vflip(s, 1);
@@ -113,6 +125,7 @@ void connectToWiFi()
   Serial.println("\nWiFi connected");
 }
 
+#if defined(ENABLE_DHT_MQTT)
 MyMQTTClient *createAndConnectMQTT()
 {
   MyMQTTClient *client = new MyMQTTClient();
@@ -128,6 +141,7 @@ MyMQTTClient *createAndConnectMQTT()
 
   return client;
 }
+#endif
 
 void setup()
 {
@@ -147,21 +161,26 @@ void setup()
 
   Serial.println("Camera Ready! Use 'http://" + WiFi.localIP().toString() + "' to connect");
 
+#if defined(ENABLE_DHT_MQTT)
   dht22 = new SimpleDHT22(DHT_PIN);
   mqttClient = createAndConnectMQTT();
+#endif
 }
 
 void loop()
 {
   const unsigned long currentTime = millis();
 
+#if defined(ENABLE_DHT_MQTT)
   mqttClient->poll();
+#endif
 
   if (currentTime > REBOOT_INTERVAL_MS)
   {
     Serial.println("restarting");
     ESP.restart();
   }
+#if defined(ENABLE_DHT_MQTT)
   else if ((lastDHTRead == 0) || ((currentTime - lastDHTRead) > DHT_READ_INTERVAL_MS))
   {
     float temperature = -1.f;
@@ -189,6 +208,7 @@ void loop()
       delete[] message;
     }
   }
+#endif
   else
   {
     delay(2 * 1000);
