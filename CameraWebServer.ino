@@ -14,9 +14,8 @@
 #define CAMERA_MODEL_AI_THINKER
 
 #include "camera_pins.h"
-
-const char*ssid="";
-const char* password="";
+#include "WifiCredentials.h"
+#include <cstring>
 
 void startCameraServer();
 
@@ -83,13 +82,18 @@ void setup()
     s->set_saturation(s, -2); //lower the saturation
   }
   //drop down frame size for higher initial frame rate
-  s->set_framesize(s, FRAMESIZE_QVGA);
+  s->set_framesize(s, FRAMESIZE_SVGA);
+  s->set_aec2(s, 1);//aec dsp
+  s->set_gainceiling(s, gainceiling_t::GAINCEILING_4X);
+  s->set_lenc(s, 0);//lens correction
 
 #if defined(CAMERA_MODEL_M5STACK_WIDE)
   s->set_hmirror(s, 1);
 #endif
 
-  WiFi.begin(ssid, password);
+  WifiCredentials const *const creds = getClosestWifi(WiFi);
+
+  WiFi.begin(creds->SSID, creds->password);
 
   while (WiFi.status() != WL_CONNECTED)
   {
@@ -108,5 +112,15 @@ void setup()
 
 void loop()
 {
-  delay(10000);
+  const unsigned long rebootIntervalMS = 5 * 50 * 1000;
+
+  if (millis() > rebootIntervalMS)
+  {
+    Serial.println("restarting");
+    ESP.restart();
+  }
+  else
+  {
+    //Serial.println("runtime is " + String(millis()) + "ms");
+  }
 }
